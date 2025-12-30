@@ -1,0 +1,2 @@
+instance-id: debian-server
+local-hostname: debianVM

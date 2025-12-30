@@ -1,0 +1,11 @@
+virt-install \
+  --connect qemu:///system \
+  --name debian-server \
+  --memory 4096 \
+  --vcpus 4 --cpu host-passthrough \
+  --os-variant debian13 \
+  --disk size=20,backing_store=$HOME/serverConfig/VM/debian-13-genericcloud-amd64.qcow2 \
+  --cloud-init user-data="$HOME/serverConfig/VM/user-data.yaml",meta-data="$HOME/serverConfig/VM/meta-data" \
+  --network type=default \
+  --graphics none \
+  --import
