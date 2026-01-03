@@ -1,7 +1,7 @@
 ---
 # PLAY 1: Root Tasks (Install Packages)
 - name: Setup My Dev Environment
-  hosts: vm_guest
+  hosts: aurora
   become: true  # This means "run as sudo"
 
   tasks:
@@ -22,18 +22,8 @@
           - trash-cli
           - ripgrep
           - build-essential
-          - keyboard-configuration
-          - console-setup
         state: present
         update_cache: yes
-
-    # - name: Ensure locale is generated
-    #   locale_gen:
-    #     name: en_US.UTF-8
-    #     state: present
-    #
-    # - name: Set default locale system-wide
-    #   command: localectl set-locale LANG=en_US.UTF-8
 
     - name: Configure CapsLock as a second Control key
       lineinfile:
@@ -50,13 +40,13 @@
       file:
         path: /home/linuxbrew
         state: directory
-        owner: "{{ ansible_user_id }}"
-        group: "{{ ansible_user_id }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
         mode: '0755'
 
     - name: Change user shell to Zsh
       ansible.builtin.user:
-        name: "{{ ansible_user_id }}" 
+        name: "{{ ansible_user }}" 
         shell: /bin/zsh
 
 
@@ -65,8 +55,7 @@
 # USER CONFIGURATION (Run as normal user)
 # ==========================================
 - name: Setup Dotfiles
-  hosts: localhost
-  connection: local
+  hosts: aurora
   become: false
 
   tasks:
@@ -104,6 +93,7 @@
           - node
           - universal-ctags
           - neovim
+          - ranger
           - zoxide
           - btop
           - fd
