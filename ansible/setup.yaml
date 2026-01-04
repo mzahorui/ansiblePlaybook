@@ -22,6 +22,7 @@
           - trash-cli
           - ripgrep
           - build-essential
+          - jq
         state: present
         update_cache: yes
 
@@ -44,12 +45,72 @@
         group: "{{ ansible_user }}"
         mode: '0755'
 
-    - name: Change user shell to Zsh
+    - name: Change user shell to Zsh and add to Docker group
       ansible.builtin.user:
         name: "{{ ansible_user }}" 
         shell: /bin/zsh
+        groups: docker
+        append: yes
 
+        # 1. Check if NVIDIA Hardware exists
+    - name: Check for NVIDIA GPU hardware
+      ansible.builtin.shell: "lspci | grep -i nvidia"
+      register: nvidia_hardware_check
+      ignore_errors: true
+      changed_when: false
 
+    # 2. Check if NVIDIA Driver is loaded (Optional but recommended)
+    - name: Check for NVIDIA Driver
+      ansible.builtin.command: nvidia-smi
+      register: nvidia_driver_check
+      ignore_errors: true
+      changed_when: false
+
+    # 3. Installation Block
+    - name: Install NVIDIA Container Toolkit
+      when: 
+        - nvidia_hardware_check.rc == 0
+        - nvidia_driver_check.rc == 0
+      block:
+        - name: Download NVIDIA GPG Key
+          ansible.builtin.get_url:
+            url: https://nvidia.github.io/libnvidia-container/gpgkey
+            dest: /usr/share/keyrings/nvidia-container-toolkit-keyring.asc
+            mode: '0644'
+
+        - name: Add NVIDIA Container Toolkit Repository
+          ansible.builtin.apt_repository:
+            # We map 'x86_64' (Ansible) to 'amd64' (Apt) explicitly
+            repo: >-
+              deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.asc] 
+              https://nvidia.github.io/libnvidia-container/stable/deb/{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' }} /
+            filename: nvidia-container-toolkit
+            state: present
+
+        - name: Install nvidia-container-toolkit package
+          ansible.builtin.apt:
+            name: nvidia-container-toolkit
+            state: present
+            update_cache: yes
+
+        - name: Check for NVIDIA runtime in Docker config
+          ansible.builtin.shell: |
+            jq -e '.runtimes.nvidia' /etc/docker/daemon.json > /dev/null
+          register: nvidia_runtime_check
+          # Return code 0 means found (success), 1 means not found (failure)
+          ignore_errors: true
+          changed_when: false
+
+        - name: Apply NVIDIA Container Runtime Config
+          ansible.builtin.command: nvidia-ctk runtime configure --runtime=docker
+          when: nvidia_runtime_check.rc != 0
+          notify: Restart Docker
+
+  handlers:
+    - name: Restart Docker
+      ansible.builtin.service:
+        name: docker
+        state: restarted
 # PLAY 2: User Tasks (Dotfiles)
 # ==========================================
 # USER CONFIGURATION (Run as normal user)
