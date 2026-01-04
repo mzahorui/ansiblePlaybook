@@ -23,6 +23,7 @@
           - ripgrep
           - build-essential
           - jq
+          - inxi
         state: present
         update_cache: yes
 
